@@ -4,8 +4,7 @@
 
 #include <string.h>
 
-void setUp(void) {}
-void tearDown(void) {}
+void crc32_test_set_up(void) {}
 
 static void test_empty_input_finalizes_to_zero(void)
 {

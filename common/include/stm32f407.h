@@ -8,6 +8,7 @@
 #define APB2PERIPH_BASE    (PERIPH_BASE + 0x00010000)
 #define AHB1PERIPH_BASE    (PERIPH_BASE + 0x00020000)
 #define RCC_BASE (AHB1PERIPH_BASE + 0x3800)
+#define FLASH_PERIPH_BASE (AHB1PERIPH_BASE + 0x3C00)
 
 typedef struct {
     volatile uint32_t CR;

@@ -1,0 +1,19 @@
+#ifndef FLASH_MAP_H
+#define FLASH_MAP_H
+
+#include <stdint.h>
+
+#define FLASH_MAP_BOOT_BASE   0x08000000u
+#define FLASH_MAP_BOOT_SIZE   (64u * 1024u)
+
+#define FLASH_MAP_SLOT_A_BASE 0x08010000u
+#define FLASH_MAP_SLOT_A_SIZE (448u * 1024u)
+
+#define FLASH_MAP_SLOT_B_BASE 0x08080000u
+#define FLASH_MAP_SLOT_B_SIZE (256u * 1024u)
+
+#define FLASH_MAP_CONFIG_A_BASE 0x080C0000u
+#define FLASH_MAP_CONFIG_B_BASE 0x080E0000u
+#define FLASH_MAP_CONFIG_SIZE   (128u * 1024u)
+
+#endif

@@ -52,6 +52,7 @@ fi
     --variable RENODE_URL:"http://127.0.0.1:$PORT/" \
     --variable BOOTLOADER_ELF:"$REPO_DIR/$BUILD_DIR/bootloader.elf" \
     --variable APP_ELF:"$REPO_DIR/$BUILD_DIR/app.elf" \
+    --variable FLASH_TEST_ELF:"$REPO_DIR/$BUILD_DIR/flash_test.elf" \
     tests/renode/
 status=$?
 
