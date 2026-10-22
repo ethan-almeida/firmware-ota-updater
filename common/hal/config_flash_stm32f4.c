@@ -44,31 +44,48 @@ static uint32_t backend_read32(void *ctx, uint32_t address)
     return value;
 }
 
-static config_io_result_t backend_program32(void *ctx, uint32_t address, uint32_t word)
+static flash_ops_result_t backend_program32(void *ctx, uint32_t address, uint32_t word)
 {
     flash_t *flash = ctx;
 
-    return flash_program_word(flash, address, word) == FLASH_OK ? CONFIG_IO_OK : CONFIG_IO_HALTED;
+    return flash_program_word(flash, address, word) == FLASH_OK ? FLASH_OPS_OK : FLASH_OPS_HALTED;
 }
 
-static config_io_result_t backend_erase_sector(void *ctx, uint32_t address)
+static flash_ops_result_t backend_erase_sector(void *ctx, uint32_t address)
 {
     flash_t *flash = ctx;
     uint32_t sector;
 
     if (!address_to_sector(address, &sector)) {
-        return CONFIG_IO_HALTED;
+        return FLASH_OPS_HALTED;
     }
 
-    return flash_erase_sector(flash, sector) == FLASH_OK ? CONFIG_IO_OK : CONFIG_IO_HALTED;
+    return flash_erase_sector(flash, sector) == FLASH_OK ? FLASH_OPS_OK : FLASH_OPS_HALTED;
+}
+
+static int backend_sector_span(void *ctx, uint32_t address, uint32_t *base, uint32_t *size)
+{
+    uint32_t sector;
+
+    (void)ctx;
+
+    if (!address_to_sector(address, &sector)) {
+        return 0;
+    }
+
+    *base = sector_table[sector].base;
+    *size = sector_table[sector].size;
+
+    return 1;
 }
 
 void config_flash_stm32f4_init(config_flash_t *config, flash_t *flash)
 {
-    config->ctx = flash;
+    config->ops.ctx = flash;
+    config->ops.read32 = backend_read32;
+    config->ops.program32 = backend_program32;
+    config->ops.erase_sector = backend_erase_sector;
+    config->ops.sector_span = backend_sector_span;
     config->slot_address[0] = FLASH_MAP_CONFIG_A_BASE;
     config->slot_address[1] = FLASH_MAP_CONFIG_B_BASE;
-    config->read32 = backend_read32;
-    config->program32 = backend_program32;
-    config->erase_sector = backend_erase_sector;
 }

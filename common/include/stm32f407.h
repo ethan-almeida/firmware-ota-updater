@@ -82,4 +82,14 @@ typedef struct {
 #define USART_CR1_TE  (1U << 3)
 #define USART_CR1_UE  (1U << 13)
 
-#endif 
+#define SCB_BASE (0xE000ED00u)
+
+typedef struct {
+    volatile uint32_t CPUID;
+    volatile uint32_t ICSR;
+    volatile uint32_t VTOR;
+} SCB_TypeDef;
+
+#define SCB ((SCB_TypeDef *)SCB_BASE)
+
+#endif

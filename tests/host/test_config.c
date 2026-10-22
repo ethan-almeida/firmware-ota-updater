@@ -1,106 +1,17 @@
 #include "unity.h"
 
 #include "config.h"
+#include "fakes/config_fake.h"
 
 #include <string.h>
-
-#define FAKE_SLOT_A 0x10000000u
-#define FAKE_SLOT_B 0x20000000u
-#define FAKE_SLOT_SIZE 128u
-
-typedef struct {
-    uint8_t slot[2][FAKE_SLOT_SIZE];
-    int writes_left;
-} config_fake_t;
 
 static config_fake_t fake;
 static config_flash_t flash;
 
-static int slot_for_address(uint32_t address, uint32_t *slot_index, uint32_t *offset)
-{
-    if (address >= FAKE_SLOT_A && address < FAKE_SLOT_A + FAKE_SLOT_SIZE) {
-        *slot_index = 0;
-    } else if (address >= FAKE_SLOT_B && address < FAKE_SLOT_B + FAKE_SLOT_SIZE) {
-        *slot_index = 1;
-    } else {
-        return 0;
-    }
-    *offset = address - (*slot_index == 0u ? FAKE_SLOT_A : FAKE_SLOT_B);
-    return 1;
-}
-
-static uint32_t fake_read32(void *ctx, uint32_t address)
-{
-    config_fake_t *f = ctx;
-    uint32_t slot_index;
-    uint32_t offset;
-    uint32_t value = 0xFFFFFFFFu;
-
-    if (slot_for_address(address, &slot_index, &offset) && offset + 4u <= FAKE_SLOT_SIZE) {
-        memcpy(&value, &f->slot[slot_index][offset], sizeof(value));
-    }
-    return value;
-}
-
-static config_io_result_t consume_write(config_fake_t *f)
-{
-    if (f->writes_left == 0) {
-        return CONFIG_IO_HALTED;
-    }
-    if (f->writes_left > 0) {
-        f->writes_left--;
-    }
-    return CONFIG_IO_OK;
-}
-
-static config_io_result_t fake_program32(void *ctx, uint32_t address, uint32_t word)
-{
-    config_fake_t *f = ctx;
-    uint32_t slot_index;
-    uint32_t offset;
-    uint32_t old = 0xFFFFFFFFu;
-
-    if (!slot_for_address(address, &slot_index, &offset) || offset + 4u > FAKE_SLOT_SIZE) {
-        return CONFIG_IO_HALTED;
-    }
-    if (consume_write(f) != CONFIG_IO_OK) {
-        return CONFIG_IO_HALTED;
-    }
-
-    memcpy(&old, &f->slot[slot_index][offset], sizeof(old));
-    old &= word;
-    memcpy(&f->slot[slot_index][offset], &old, sizeof(old));
-    return CONFIG_IO_OK;
-}
-
-static config_io_result_t fake_erase_sector(void *ctx, uint32_t address)
-{
-    config_fake_t *f = ctx;
-    uint32_t slot_index;
-    uint32_t offset;
-
-    if (!slot_for_address(address, &slot_index, &offset)) {
-        return CONFIG_IO_HALTED;
-    }
-    if (consume_write(f) != CONFIG_IO_OK) {
-        return CONFIG_IO_HALTED;
-    }
-
-    memset(f->slot[slot_index], 0xFF, FAKE_SLOT_SIZE);
-    return CONFIG_IO_OK;
-}
-
 void config_test_set_up(void)
 {
-    memset(&fake, 0xFF, sizeof(fake));
-    fake.writes_left = -1;
-
-    flash.ctx = &fake;
-    flash.slot_address[0] = FAKE_SLOT_A;
-    flash.slot_address[1] = FAKE_SLOT_B;
-    flash.read32 = fake_read32;
-    flash.program32 = fake_program32;
-    flash.erase_sector = fake_erase_sector;
+    config_fake_init(&fake);
+    config_fake_bind(&fake, &flash);
 }
 
 static config_record_t make_record(uint32_t version)
@@ -116,14 +27,12 @@ static config_record_t make_record(uint32_t version)
 
 static uint32_t read_slot_magic(uint32_t slot_index)
 {
-    uint32_t value;
-    memcpy(&value, &fake.slot[slot_index][0], sizeof(value));
-    return value;
+    return config_fake_slot_magic(&fake, slot_index);
 }
 
 static void flip_slot_bit(uint32_t slot_index, uint32_t byte_index)
 {
-    fake.slot[slot_index][byte_index] ^= 0x01u;
+    config_fake_flip_byte(&fake, slot_index, byte_index);
 }
 
 static void test_load_on_empty_region_returns_error(void)
@@ -199,7 +108,7 @@ static void test_third_store_reuses_first_slot(void)
     TEST_ASSERT_EQUAL(CONFIG_OK, config_store(&flash, &record));
     TEST_ASSERT_EQUAL(CONFIG_OK, config_store(&flash, &record));
 
-    uint32_t slot_b_image[FAKE_SLOT_SIZE / 4u];
+    uint32_t slot_b_image[CONFIG_FAKE_SLOT_SIZE / 4u];
     memcpy(slot_b_image, fake.slot[1], sizeof(slot_b_image));
 
     TEST_ASSERT_EQUAL(CONFIG_OK, config_store(&flash, &record));

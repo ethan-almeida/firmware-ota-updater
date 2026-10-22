@@ -13,7 +13,7 @@ ENTRY_ADDRESS = 0x08010000
 FIRMWARE_VERSION = 1
 BODY_SIZE = sign_image.HEADER_STRUCT.size
 FLIP_TARGETS = {
-    "payload": sign_image.IMAGE_HEADER_SIZE,
+    "payload": sign_image.IMAGE_PAYLOAD_OFFSET,
     "digest": BODY_SIZE - sign_image.SIGNATURE_LEN - sign_image.SHA256_LEN,
     "signature": BODY_SIZE - sign_image.SIGNATURE_LEN,
 }
@@ -54,7 +54,7 @@ def build_cases(private_key, payload):
         ("SIGNATURE", pubkey, reseal_header(flip_byte(signed, FLIP_TARGETS["signature"]))),
         ("SIGNATURE", flipped_pubkey, signed),
         ("IMAGE", pubkey, signed[:100]),
-        ("IMAGE", pubkey, signed[:sign_image.IMAGE_HEADER_SIZE + 200]),
+        ("IMAGE", pubkey, signed[:sign_image.IMAGE_PAYLOAD_OFFSET + 200]),
         ("IMAGE", pubkey, signed + b"\x00"),
         ("IMAGE", pubkey, flip_byte(signed, FLIP_TARGETS["digest"])),
     ]

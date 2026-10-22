@@ -54,6 +54,7 @@ fi
     --variable APP_ELF:"$REPO_DIR/$BUILD_DIR/app.elf" \
     --variable FLASH_TEST_ELF:"$REPO_DIR/$BUILD_DIR/flash_test.elf" \
     --variable CRYPTO_TEST_ELF:"$REPO_DIR/$BUILD_DIR/crypto_test.elf" \
+    --variable GEN_DIR:"$REPO_DIR/$BUILD_DIR/gen" \
     tests/renode/
 status=$?
 

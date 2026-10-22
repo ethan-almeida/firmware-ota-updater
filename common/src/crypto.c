@@ -39,12 +39,12 @@ crypto_status_t crypto_verify_image(const uint8_t public_key[CRYPTO_PUBKEY_LEN],
         return CRYPTO_ERR_IMAGE;
     }
 
-    if (total_len != sizeof(image_header_t) + (size_t)header.image_size) {
+    if (total_len != IMAGE_PAYLOAD_OFFSET + (size_t)header.image_size) {
         return CRYPTO_ERR_IMAGE;
     }
 
     uint8_t digest[CRYPTO_DIGEST_LEN];
-    sha256(raw_image + sizeof(image_header_t), header.image_size, digest);
+    sha256(raw_image + IMAGE_PAYLOAD_OFFSET, header.image_size, digest);
 
     if (memcmp(digest, header.sha256, sizeof(digest)) != 0) {
         return CRYPTO_ERR_DIGEST;

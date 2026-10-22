@@ -5,6 +5,7 @@ SIZE    := $(CROSS)size
 HOSTCC  ?= gcc
 
 BUILD   := build
+GEN_DIR := $(BUILD)/gen
 VENV    := $(BUILD)/venv
 ROBOT   := $(VENV)/bin/robot
 MCUFLAGS := -mcpu=cortex-m4 -mthumb -mfloat-abi=soft
@@ -21,6 +22,8 @@ STARTUP      := common/startup/startup_stm32f407.s
 COMMON_TSRC  := common/src/crc32.c \
                 common/src/image.c \
                 common/src/config.c \
+                common/src/boot.c \
+                common/src/image_copy.c \
                 common/src/sha256.c \
                 common/src/crypto.c \
                 common/hal/uart.c \
@@ -33,16 +36,21 @@ HOST_CFLAGS := -std=c11 -Wall -Wextra -Werror -g -O0 \
                -Icommon/include -Itests/host -I$(UNITY) -I$(UECC_DIR)
 HOST_SRCS := common/src/crc32.c \
              common/src/image.c \
+             common/src/image_copy.c \
              common/src/config.c \
+             common/src/boot.c \
              common/src/sha256.c \
              common/src/crypto.c \
              common/hal/flash.c \
              $(UNITY)/unity.c \
              tests/host/fakes/flash_model.c \
+             tests/host/fakes/config_fake.c \
              tests/host/test_crc32.c \
              tests/host/test_flash.c \
              tests/host/test_image.c \
+             tests/host/test_image_copy.c \
              tests/host/test_config.c \
+             tests/host/test_boot.c \
              tests/host/test_sha256.c \
              tests/host/test_crypto.c \
              tests/host/test_main.c
@@ -50,7 +58,8 @@ HOST_SRCS := common/src/crc32.c \
 .PHONY: all test coverage renode-test clean
 
 all: $(BUILD)/bootloader.elf $(BUILD)/bootloader.bin \
-     $(BUILD)/app.elf $(BUILD)/app.bin
+     $(BUILD)/app.elf $(BUILD)/app.bin \
+     $(BUILD)/app_b.elf $(BUILD)/app_b.bin
 
 test: $(BUILD)/host_tests
 	$(BUILD)/host_tests
@@ -64,7 +73,9 @@ coverage: $(BUILD)/uECC_host.o | $(BUILD)
 	    grep -E "File '.*common/" -A 1 coverage.txt | grep -v "^--"
 
 renode-test: $(VENV)/bin/robot $(BUILD)/bootloader.elf $(BUILD)/app.elf \
-             $(BUILD)/flash_test.elf $(BUILD)/crypto_test.elf
+             $(BUILD)/app_b.bin $(BUILD)/unconfirmed_b.bin \
+             $(BUILD)/flash_test.elf $(BUILD)/crypto_test.elf \
+             $(GEN_DIR)/boot_scenarios.stamp
 	ROBOT=$(ROBOT) BUILD_DIR=$(BUILD) scripts/run_renode_tests.sh
 
 clean:
@@ -95,6 +106,30 @@ $(BUILD)/app.elf: $(STARTUP) $(COMMON_TSRC) $(BUILD)/uECC.o app/src/main.c \
 $(BUILD)/app.bin: $(BUILD)/app.elf
 	$(OBJCOPY) -O binary $< $@
 
+$(BUILD)/app_b.elf: $(STARTUP) $(COMMON_TSRC) $(BUILD)/uECC.o app/src/main.c \
+                    app/linker/stm32f407_app_b.ld | $(BUILD)
+	$(CC) $(TCFLAGS) $(INCFLAGS) \
+	    -T app/linker/stm32f407_app_b.ld \
+	    -Wl,-Map=$(BUILD)/app_b.map \
+	    $(TLDFLAGS) $(STARTUP) $(COMMON_TSRC) $(BUILD)/uECC.o app/src/main.c -o $@
+	$(SIZE) $@
+
+$(BUILD)/app_b.bin: $(BUILD)/app_b.elf
+	$(OBJCOPY) -O binary $< $@
+
+$(BUILD)/unconfirmed_b.elf: $(STARTUP) $(COMMON_TSRC) $(BUILD)/uECC.o \
+                            tests/renode/fw/unconfirmed_main.c \
+                            app/linker/stm32f407_app_b.ld | $(BUILD)
+	$(CC) $(TCFLAGS) $(INCFLAGS) \
+	    -T app/linker/stm32f407_app_b.ld \
+	    -Wl,-Map=$(BUILD)/unconfirmed_b.map \
+	    $(TLDFLAGS) $(STARTUP) $(COMMON_TSRC) $(BUILD)/uECC.o \
+	    tests/renode/fw/unconfirmed_main.c -o $@
+	$(SIZE) $@
+
+$(BUILD)/unconfirmed_b.bin: $(BUILD)/unconfirmed_b.elf
+	$(OBJCOPY) -O binary $< $@
+
 $(BUILD)/flash_test.elf: $(STARTUP) $(COMMON_TSRC) $(BUILD)/uECC.o tests/renode/fw/flash_test_main.c \
                          bootloader/linker/stm32f407_bootloader.ld | $(BUILD)
 	$(CC) $(TCFLAGS) $(INCFLAGS) \
@@ -102,8 +137,6 @@ $(BUILD)/flash_test.elf: $(STARTUP) $(COMMON_TSRC) $(BUILD)/uECC.o tests/renode/
 	    -Wl,-Map=$(BUILD)/flash_test.map \
 	    $(TLDFLAGS) $(STARTUP) $(COMMON_TSRC) $(BUILD)/uECC.o tests/renode/fw/flash_test_main.c -o $@
 	$(SIZE) $@
-
-GEN_DIR := $(BUILD)/gen
 
 $(GEN_DIR):
 	mkdir -p $@
@@ -116,6 +149,14 @@ $(GEN_DIR)/signed_test_image.bin: scripts/sign_image.py tests/vectors/test_priva
 
 $(GEN_DIR)/test_image_blob.c: $(GEN_DIR)/signed_test_image.bin scripts/bin2c.py | $(GEN_DIR)
 	python3 scripts/bin2c.py --in $< --out $@ --symbol test_signed_image
+
+$(GEN_DIR)/boot_scenarios.stamp: scripts/gen_boot_scenarios.py scripts/sign_image.py \
+                                 scripts/keygen.py tests/vectors/test_private.pem \
+                                 $(BUILD)/app.bin $(BUILD)/app_b.bin $(BUILD)/unconfirmed_b.bin | $(GEN_DIR)
+	python3 scripts/gen_boot_scenarios.py --key tests/vectors/test_private.pem \
+	    --app-a $(BUILD)/app.bin --app-b $(BUILD)/app_b.bin \
+	    --unconfirmed $(BUILD)/unconfirmed_b.bin --out-dir $(GEN_DIR)
+	touch $@
 
 $(GEN_DIR)/test_pubkey_blob.c: tests/vectors/test_public_key.bin scripts/bin2c.py | $(GEN_DIR)
 	python3 scripts/bin2c.py --in $< --out $@ --symbol test_public_key
@@ -132,7 +173,7 @@ $(BUILD)/crypto_test.elf: $(STARTUP) $(COMMON_TSRC) $(BUILD)/uECC.o \
 	    $(GEN_DIR)/test_image_blob.c $(GEN_DIR)/test_pubkey_blob.c -o $@
 	$(SIZE) $@
 
-$(BUILD)/host_tests: $(HOST_SRCS) $(BUILD)/uECC_host.o | $(BUILD)
+$(BUILD)/host_tests: $(HOST_SRCS) $(BUILD)/uECC_host.o $(GEN_DIR)/signed_test_image.bin | $(BUILD)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_SRCS) $(BUILD)/uECC_host.o -o $@
 
 $(BUILD)/uECC_host.o: $(UECC_DIR)/uECC.c | $(BUILD)

@@ -9,7 +9,7 @@ extern const uint8_t test_signed_image[];
 extern const size_t test_signed_image_len;
 extern const uint8_t test_public_key[];
 
-static uint8_t tampered[512];
+static uint8_t tampered[1024];
 static uint32_t failures;
 
 static void check(int condition, const char *name)
@@ -39,7 +39,7 @@ static void run_checks(void)
           "valid");
 
     load_tampered();
-    tampered[sizeof(image_header_t) + 10] ^= 0x01u;
+    tampered[IMAGE_PAYLOAD_OFFSET + 10] ^= 0x01u;
     check(crypto_verify_image(test_public_key, tampered, test_signed_image_len) == CRYPTO_ERR_DIGEST,
           "tampered-payload");
 

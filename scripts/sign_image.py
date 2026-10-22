@@ -13,6 +13,8 @@ IMAGE_HEADER_VERSION = 1
 HEADER_STRUCT = struct.Struct("<IIIIII32s64s")
 HEADER_CRC_SIZE = 4
 IMAGE_HEADER_SIZE = HEADER_STRUCT.size + HEADER_CRC_SIZE
+IMAGE_PAYLOAD_OFFSET = 512
+HEADER_PAD_BYTE = b"\xFF"
 SHA256_LEN = 32
 SIGNATURE_LEN = 64
 
@@ -57,7 +59,9 @@ def build_signed_image(private_key, payload, version, load_address, entry_addres
         signature,
     )
     crc = zlib.crc32(body) & 0xFFFFFFFF
-    return body + struct.pack("<I", crc) + payload
+    header_area = body + struct.pack("<I", crc)
+    header_area += HEADER_PAD_BYTE * (IMAGE_PAYLOAD_OFFSET - len(header_area))
+    return header_area + payload
 
 
 def parse_int(value):

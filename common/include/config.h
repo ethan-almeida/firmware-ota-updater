@@ -1,6 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include "flash_ops.h"
+
 #include <stdint.h>
 
 #define CONFIG_MAGIC 0x31474643u
@@ -21,17 +23,9 @@ typedef struct {
     uint32_t crc;
 } config_record_t;
 
-typedef enum {
-    CONFIG_IO_OK = 0,
-    CONFIG_IO_HALTED,
-} config_io_result_t;
-
 typedef struct {
-    void *ctx;
+    flash_ops_t ops;
     uint32_t slot_address[CONFIG_SLOT_COUNT];
-    uint32_t (*read32)(void *ctx, uint32_t address);
-    config_io_result_t (*program32)(void *ctx, uint32_t address, uint32_t word);
-    config_io_result_t (*erase_sector)(void *ctx, uint32_t address);
 } config_flash_t;
 
 typedef enum {

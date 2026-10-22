@@ -17,7 +17,7 @@ static void read_record(const config_flash_t *flash, uint32_t address, config_re
     uint8_t bytes[CONFIG_RECORD_SIZE];
 
     for (uint32_t offset = 0; offset < CONFIG_RECORD_SIZE; offset += 4u) {
-        uint32_t word = flash->read32(flash->ctx, address + offset);
+        uint32_t word = flash->ops.read32(flash->ops.ctx, address + offset);
         memcpy(bytes + offset, &word, sizeof(word));
     }
 
@@ -80,7 +80,7 @@ config_status_t config_load(const config_flash_t *flash, config_record_t *out)
     return CONFIG_OK;
 }
 
-static config_io_result_t program_record(const config_flash_t *flash, uint32_t address,
+static flash_ops_result_t program_record(const config_flash_t *flash, uint32_t address,
                                          const config_record_t *record)
 {
     const uint8_t *bytes = (const uint8_t *)record;
@@ -89,19 +89,19 @@ static config_io_result_t program_record(const config_flash_t *flash, uint32_t a
         uint32_t word;
         memcpy(&word, bytes + offset, sizeof(word));
 
-        if (flash->program32(flash->ctx, address + offset, word) != CONFIG_IO_OK) {
-            return CONFIG_IO_HALTED;
+        if (flash->ops.program32(flash->ops.ctx, address + offset, word) != FLASH_OPS_OK) {
+            return FLASH_OPS_HALTED;
         }
     }
 
     uint32_t magic;
     memcpy(&magic, bytes, sizeof(magic));
 
-    if (flash->program32(flash->ctx, address, magic) != CONFIG_IO_OK) {
-        return CONFIG_IO_HALTED;
+    if (flash->ops.program32(flash->ops.ctx, address, magic) != FLASH_OPS_OK) {
+        return FLASH_OPS_HALTED;
     }
 
-    return CONFIG_IO_OK;
+    return FLASH_OPS_OK;
 }
 
 config_status_t config_store(const config_flash_t *flash, const config_record_t *record)
@@ -121,11 +121,11 @@ config_status_t config_store(const config_flash_t *flash, const config_record_t 
     next.sequence = newest < 0 ? 0u : slots[newest].record.sequence + 1u;
     next.crc = crc32_calc((const uint8_t *)&next, CONFIG_RECORD_CRC_BYTES);
 
-    if (flash->erase_sector(flash->ctx, flash->slot_address[target]) != CONFIG_IO_OK) {
+    if (flash->ops.erase_sector(flash->ops.ctx, flash->slot_address[target]) != FLASH_OPS_OK) {
         return CONFIG_ERR_IO;
     }
 
-    if (program_record(flash, flash->slot_address[target], &next) != CONFIG_IO_OK) {
+    if (program_record(flash, flash->slot_address[target], &next) != FLASH_OPS_OK) {
         return CONFIG_ERR_IO;
     }
 

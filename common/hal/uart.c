@@ -55,3 +55,11 @@ void uart_puts(const char *s)
         s++;
     }
 }
+
+void uart_deinit(void)
+{
+    while ((USART1->SR & USART_SR_TC) == 0u) {
+
+    }
+    USART1->CR1 = 0u;
+}
