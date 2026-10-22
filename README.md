@@ -13,7 +13,7 @@ host-side TDD test loop plus Renode integration tests.
 |---|---|---|
 | 1 | Build system, test harness, Renode bring-up | ✅ done |
 | 2 | Register layer, flash driver, image format | ✅ done |
-| 3 | SHA-256 + ECDSA verify, signing pipeline | ⬜ |
+| 3 | SHA-256 + ECDSA verify, signing pipeline | ✅ done |
 | 4 | Secure boot core: A/B policy, trial boot, rollback | ⬜ |
 | 5 | UART OTA transport, fault-injection matrix, docs | ⬜ |
 
@@ -23,16 +23,18 @@ host-side TDD test loop plus Renode integration tests.
 bootloader/   Stage-0 bootloader (linked at 0x08000000, 64K)
 app/          Application image, slot A (linked at 0x08010000, 448K)
 common/       Shared code: register headers, startup, HAL, pure logic
-  include/    Public headers (stm32f407.h, flash.h, image.h, config.h, ...)
+  include/    Public headers (stm32f407.h, flash.h, image.h, config.h, crypto.h, ...)
   hal/        Register-level drivers (flash, uart, STM32 backends)
   src/        Hardware-independent logic (unit-tested on host)
   startup/    Cortex-M4 vector table + reset handler
+  third_party/ Vendored micro-ecc (ECDSA P-256 signature verification)
 tests/
   host/       Unity unit tests, run on the host via `make test`
     fakes/    Peripheral models used by the host tests
   renode/     Robot Framework integration tests, run via `make renode-test`
     fw/       Test firmware images executed inside Renode
-scripts/      Build/test tooling (test runner; signing lands in Block 3)
+  vectors/    Shared sign/verify artifacts: test key pair, payload, vector cases
+scripts/      Tooling: test runner, keygen.py, sign_image.py, bin2c.py, vector generator
 ```
 
 ## Flash map (STM32F407, 1 MB, sector-aligned)
